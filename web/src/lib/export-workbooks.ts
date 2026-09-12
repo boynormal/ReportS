@@ -10,6 +10,7 @@ import type { TicketLookupResult } from "./ticket-lookup-types";
 import type { SalesProfitResult } from "./sales-profit-types";
 import type { StockTransformsResult } from "./transform-types";
 import type { TradeLinesResult, TradeSummary } from "./trade-types";
+import type { YearCompareResult } from "./year-compare-types";
 
 const REPORT_LISTS: Array<{ kind: CustomerReportKind; label: string }> = [
   { kind: "new", label: "ลูกค้าใหม่" },
@@ -408,4 +409,84 @@ export async function exportTransforms(data: StockTransformsResult) {
     )
   );
   return xlsxResponse(wb, exportFileName(["แปรสภาพ", data.beYear, String(data.month).padStart(2, "0")]));
+}
+
+function pctCell(value: number | null): number | "" {
+  return value == null ? "" : value / 100;
+}
+
+export async function exportYearCompare(data: YearCompareResult) {
+  const wb = createWorkbook();
+  const ytd =
+    data.throughMonth === 1
+      ? THAI_MONTHS_SHORT[0]
+      : `${THAI_MONTHS_SHORT[0]}–${THAI_MONTHS_SHORT[data.throughMonth - 1]}`;
+  addSheet(wb, "KPI", ["รายการ", `ปี ${data.beYear}`, `ปี ${data.compareBeYear}`, "%Δ"], [
+    ["ช่วง YTD", ytd, ytd, ""],
+    ["สาขา", data.branch ?? "ทุกสาขา", "", ""],
+    ["ตั๋ว", data.kpis.current.tickets, data.kpis.previous.tickets, pctCell(data.kpis.changePct.tickets)],
+    ["ลูกค้าไม่ซ้ำ", data.kpis.current.customers, data.kpis.previous.customers, pctCell(data.kpis.changePct.customers)],
+    ["น้ำหนักกก.", data.kpis.current.weightKg, data.kpis.previous.weightKg, pctCell(data.kpis.changePct.weightKg)],
+    ["ยอดบาท", data.kpis.current.amount, data.kpis.previous.amount, pctCell(data.kpis.changePct.amount)],
+    ["ตั๋วต่อลูกค้า", data.kpis.current.ticketsPerCustomer, data.kpis.previous.ticketsPerCustomer, pctCell(data.kpis.changePct.ticketsPerCustomer)],
+    ["ความครบปีปัจจุบัน", data.completeness.currentLabel, "", ""],
+    ["ความครบปีเทียบ", data.completeness.previousLabel, "", ""],
+  ]);
+  addSheet(
+    wb,
+    "รายเดือน",
+    ["เดือน", `ตั๋ว ${data.beYear}`, `ตั๋ว ${data.compareBeYear}`, `ลูกค้า ${data.beYear}`, `ลูกค้า ${data.compareBeYear}`, `กก. ${data.beYear}`, `กก. ${data.compareBeYear}`, `บาท ${data.beYear}`, `บาท ${data.compareBeYear}`],
+    Array.from({ length: 12 }, (_, i) => {
+      const cur = data.monthly.current[i];
+      const prev = data.monthly.previous[i];
+      return [
+        THAI_MONTHS_SHORT[i],
+        cur?.tickets ?? "",
+        prev?.tickets ?? "",
+        cur?.customers ?? "",
+        prev?.customers ?? "",
+        cur?.weightKg ?? "",
+        prev?.weightKg ?? "",
+        cur?.amount ?? "",
+        prev?.amount ?? "",
+      ];
+    })
+  );
+  addSheet(
+    wb,
+    "หมวดหมู่ YTD",
+    [
+      "รหัส",
+      "ชื่อ",
+      `ตั๋ว ${data.compareBeYear}`,
+      `ตั๋ว ${data.beYear}`,
+      "%Δ ตั๋ว",
+      `ลูกค้า ${data.compareBeYear}`,
+      `ลูกค้า ${data.beYear}`,
+      "%Δ ลูกค้า",
+      `กก. ${data.compareBeYear}`,
+      `กก. ${data.beYear}`,
+      "%Δ กก.",
+      `บาท ${data.compareBeYear}`,
+      `บาท ${data.beYear}`,
+      "%Δ บาท",
+    ],
+    data.categories.map((row) => [
+      row.itemGroup ?? "ไม่ระบุ",
+      row.nameTh,
+      row.previous.tickets,
+      row.current.tickets,
+      pctCell(row.changePct.tickets),
+      row.previous.customers,
+      row.current.customers,
+      pctCell(row.changePct.customers),
+      row.previous.weightKg,
+      row.current.weightKg,
+      pctCell(row.changePct.weightKg),
+      row.previous.amount,
+      row.current.amount,
+      pctCell(row.changePct.amount),
+    ])
+  );
+  return xlsxResponse(wb, exportFileName(["เทียบปี", data.branch ?? "ทุกสาขา", data.compareBeYear, data.beYear, ytd]));
 }

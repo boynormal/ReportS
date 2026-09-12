@@ -16,7 +16,8 @@ type PageTab =
   | "customer-sell"
   | "small-in"
   | "sales-profit"
-  | "transform";
+  | "transform"
+  | "yoy";
 
 export function ExportExcelButton({
   tab,

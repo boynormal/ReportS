@@ -29,6 +29,7 @@ import { formatDecimal, formatHours, formatMoney, formatNumber, formatWhen } fro
 import { ExportExcelButton } from "./ExportExcelButton";
 import { PageHelpButton } from "./PageHelpButton";
 import { SessionBar } from "./SessionBar";
+import { YearCompareApp } from "./YearCompareApp";
 import type { CustomerPurchasesResult } from "@/lib/customer-purchase-types";
 import type { CustomerReportKind, CustomerReportKpi, CustomerReportPerson, CustomerReportResult } from "@/lib/customer-report-types";
 import type { CustomerRow, CustomersResult, SellerChoice } from "@/lib/customer-types";
@@ -43,7 +44,7 @@ import type { StockTransformsResult } from "@/lib/transform-types";
 import type { TradePivotRow, TradeSide, TradeSummary } from "@/lib/trade-types";
 
 type Metric = "amount" | "weight";
-type PageTab = TradeSide | "lookup" | "open" | "stock" | "transform" | "customers" | "customer-report" | "customer-buy" | "customer-sell" | "small-in" | "sales-profit";
+type PageTab = TradeSide | "lookup" | "open" | "stock" | "transform" | "customers" | "customer-report" | "customer-buy" | "customer-sell" | "small-in" | "sales-profit" | "yoy";
 type OpenSide = "all" | "in" | "out";
 
 const TAB_META: Record<PageTab, { label: string; theme: string }> = {
@@ -51,6 +52,7 @@ const TAB_META: Record<PageTab, { label: string; theme: string }> = {
   out: { label: "ขายออก", theme: "theme-out" },
   profit: { label: "ส่วนต่างขาย−ซื้อ", theme: "theme-profit" },
   "sales-profit": { label: "กำไรจากการขาย", theme: "theme-profit" },
+  yoy: { label: "เทียบปี", theme: "theme-in" },
   "small-in": { label: "ยอดซื้อต่ำกว่าเกณฑ์", theme: "theme-in" },
   "customer-buy": { label: "ซื้อเข้ารายลูกค้า", theme: "theme-in" },
   "customer-sell": { label: "ขายออกรายลูกค้า", theme: "theme-out" },
@@ -63,7 +65,7 @@ const TAB_META: Record<PageTab, { label: string; theme: string }> = {
 };
 
 const NAV_GROUPS: Array<{ title: string; tabs: PageTab[] }> = [
-  { title: "ซื้อ–ขาย", tabs: ["in", "out", "profit", "sales-profit", "small-in"] },
+  { title: "ซื้อ–ขาย", tabs: ["in", "out", "profit", "sales-profit", "small-in", "yoy"] },
   { title: "ลูกค้า", tabs: ["customers", "customer-report", "customer-buy", "customer-sell"] },
   { title: "คลัง", tabs: ["stock", "transform"] },
   { title: "ปฏิบัติการ", tabs: ["open", "lookup"] },
@@ -403,7 +405,8 @@ export function TradeSummaryApp() {
       tab === "customer-sell" ||
       tab === "small-in" ||
       tab === "sales-profit" ||
-      tab === "transform"
+      tab === "transform" ||
+      tab === "yoy"
     )
       return;
     let cancelled = false;
@@ -785,7 +788,7 @@ export function TradeSummaryApp() {
                 type="button"
                 className={`trade-nav-item ${tab === id ? "active" : ""}`}
                 onClick={() => {
-                  setParams({ tab: id, page: null });
+                  setParams({ tab: id, page: null, branch: id === "yoy" && !branch ? "3" : branch || null });
                   setNavOpen(false);
                 }}
               >
@@ -1169,7 +1172,7 @@ export function TradeSummaryApp() {
             ) : null}
             <ExportExcelButton tab={tab} disabled={loading} />
           </div>
-        ) : (
+        ) : tab === "yoy" ? null : (
           <div className="row trade-toolbar">
             <label className="muted">
               เลือกปี พ.ศ.{" "}
@@ -1254,7 +1257,7 @@ export function TradeSummaryApp() {
         )}
       </header>
 
-      {error ? <p className="error">{error}</p> : null}
+      {error && tab !== "yoy" ? <p className="error">{error}</p> : null}
       {tab === "lookup" && loading ? <p className="muted">กำลังค้นหาเลขที่ {q}…</p> : null}
       {tab === "open" && loading && !openTickets ? <p className="muted">กำลังโหลดตั๋วที่ยังไม่ปิด…</p> : null}
       {tab === "stock" && loading && !stock ? <p className="muted">กำลังโหลดสต็อก…</p> : null}
@@ -1339,6 +1342,8 @@ export function TradeSummaryApp() {
           onPage={(page) => setParams({ page: page <= 1 ? null : String(page) })}
         />
       ) : null}
+
+      {tab === "yoy" ? <YearCompareApp dataEpoch={dataEpoch} /> : null}
 
       {tab === "transform" && transforms ? (
         <TransformPanel

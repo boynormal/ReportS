@@ -11,6 +11,7 @@ import {
   exportStock,
   exportTradeSummary,
   exportTransforms,
+  exportYearCompare,
 } from "@/lib/export-workbooks";
 import {
   getCustomerPurchases,
@@ -24,6 +25,7 @@ import {
   getStockTransforms,
   getTradeLines,
   getTradeSummary,
+  getYearCompare,
   lookupTicketsByNumber,
 } from "@/lib/queries";
 import { SMALL_IN_CAPS, type SmallInCap } from "@/lib/small-in-types";
@@ -46,6 +48,7 @@ const TABS = new Set([
   "sales-profit",
   "open",
   "lookup",
+  "yoy",
 ]);
 
 function parseYear(raw: string | null): number {
@@ -201,6 +204,28 @@ export async function GET(request: Request, ctx: { params: Promise<{ tab: string
     if (tab === "lookup") {
       if (!q || !q.trim()) return errorJson("ใส่เลขที่ตั๋วก่อนส่งออก", 400);
       return exportLookup(await lookupTicketsByNumber(q.trim()));
+    }
+
+    if (tab === "yoy") {
+      const compareCe = parseYear(url.searchParams.get("compare") ?? String(ceYear - 1 + 543));
+      const includeCurrent =
+        url.searchParams.get("include_current") === "1" || url.searchParams.get("include_current") === "true";
+      const throughRaw = Number(url.searchParams.get("through_month") ?? url.searchParams.get("through"));
+      const throughMonth =
+        Number.isInteger(throughRaw) && throughRaw >= 1 && throughRaw <= 12 ? throughRaw : undefined;
+      const itemGroups = parseList(url, ["item_groups", "item_group"]);
+      return exportYearCompare(
+        await getYearCompare({
+          ceYear,
+          compareCeYear: compareCe,
+          throughMonth,
+          includeCurrentMonth: includeCurrent,
+          filters: {
+            branch: branch && branch.length > 0 ? branch : null,
+            itemGroups: itemGroups.length ? itemGroups : undefined,
+          },
+        })
+      );
     }
 
     return errorJson("ไม่รองรับหน้านี้", 400);

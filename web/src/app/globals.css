@@ -480,6 +480,38 @@ select, input[type="date"], input[type="text"] {
 }
 .grid { display: grid; gap: 10px; }
 .grid-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.grid-5 { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.yoy-banner { margin-bottom: 12px; }
+.yoy-banner .sub { margin-top: 6px; }
+.yoy-kpis { margin-bottom: 14px; }
+.yoy-delta { font-size: 13px; color: var(--muted); }
+.yoy-delta.up { color: #1f6b3a; font-weight: 650; }
+.yoy-delta.down { color: #8b1e1e; font-weight: 650; }
+.yoy-movers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 12px 0;
+}
+.yoy-mover {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.yoy-table { min-width: 1280px; }
+.yoy-heat { min-width: 980px; }
+.yoy-heat-empty { color: var(--muted); }
+.yoy-sparks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.yoy-spark { padding: 10px 12px; }
+@media (max-width: 900px) {
+  .yoy-movers { grid-template-columns: 1fr; }
+}
 .customer-report-kpis {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

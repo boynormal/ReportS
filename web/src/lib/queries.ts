@@ -3,11 +3,24 @@ import {
   bangkokDayStart,
   ceMonthRange,
   ceYearRange,
+  currentCeYear,
+  defaultYtdThroughMonth,
   rangeFromPreset,
   sqlDay,
+  THAI_MONTHS_SHORT,
   toBuddhistYear,
   type DateRange,
 } from "./dates";
+import {
+  changeOf,
+  itemGroupName,
+  withTicketsPerCustomer,
+  type YearCompareCategory,
+  type YearCompareFilters,
+  type YearCompareMonth,
+  type YearCompareResult,
+  type YearCompareTotals,
+} from "./year-compare-types";
 import type { CustomerReportPerson, CustomerReportResult } from "./customer-report-types";
 import type { SyncStatus } from "./sync-types";
 import type { LookupTicket, LookupTicketItem, TicketLookupResult } from "./ticket-lookup-types";
@@ -33,6 +46,7 @@ export type { SalesProfitResult } from "./sales-profit-types";
 export type { StockProduct, StockResult } from "./stock-types";
 export type { StockTransformsResult } from "./transform-types";
 export type { TradeDayPoint, TradeFilters, TradeLine, TradeLinesResult, TradeMonthPoint, TradePivotRow, TradeSide, TradeSummary } from "./trade-types";
+export type { YearCompareResult } from "./year-compare-types";
 
 /** Contaminant kg from `wastes` JSON — object `{weight}` or array of those. */
 export const ITEM_WASTE_WEIGHT = `CASE
@@ -2514,5 +2528,303 @@ export async function getStockTransforms(opts: {
       };
     }),
     rows,
+  };
+}
+
+function yearCompareFilterSql(startIndex: number, filters?: YearCompareFilters | null): { sql: string; params: unknown[] } {
+  const params: unknown[] = [];
+  let sql = "";
+  if (filters?.branch) {
+    params.push(filters.branch);
+    sql += ` AND i.branch_code = $${startIndex + params.length - 1}`;
+  }
+  if (filters?.itemGroups?.length) {
+    params.push(filters.itemGroups);
+    sql += ` AND i.item_group = ANY($${startIndex + params.length - 1}::text[])`;
+  }
+  return { sql, params };
+}
+
+function ytdRange(ceYear: number, throughMonth: number): DateRange {
+  const month = Math.min(12, Math.max(1, throughMonth));
+  return { from: bangkokDayStart(ceYear, 1, 1), to: bangkokDayStart(ceYear, month + 1, 1) };
+}
+
+function monthSeries(
+  byMonth: Map<number, Omit<YearCompareMonth, "month">>,
+  lastVisible: number | null
+): YearCompareMonth[] {
+  return Array.from({ length: 12 }, (_, i) => {
+    const month = i + 1;
+    if (lastVisible != null && month > lastVisible) {
+      return { month, tickets: null, customers: null, weightKg: null, amount: null };
+    }
+    const row = byMonth.get(month);
+    return {
+      month,
+      tickets: row ? row.tickets : 0,
+      customers: row ? row.customers : 0,
+      weightKg: row ? row.weightKg : 0,
+      amount: row ? row.amount : 0,
+    };
+  });
+}
+
+function totalsFromRow(row?: { tickets: number; customers: number; weight_kg: number; amount: number } | null): YearCompareTotals {
+  return withTicketsPerCustomer({
+    tickets: num(row?.tickets),
+    customers: num(row?.customers),
+    weightKg: num(row?.weight_kg),
+    amount: num(row?.amount),
+  });
+}
+
+function completenessLabel(beYear: number, months: number[]): string {
+  if (!months.length) return `ปี ${beYear} ไม่มีข้อมูลในคลัง`;
+  const first = THAI_MONTHS_SHORT[months[0]! - 1];
+  const last = THAI_MONTHS_SHORT[months[months.length - 1]! - 1];
+  if (months.length === 12) return `ปี ${beYear} ครบ ม.ค.–ธ.ค.`;
+  if (months[0] === months[months.length - 1]) return `ปี ${beYear} มี ${first}`;
+  return `ปี ${beYear} มี ${first}–${last}`;
+}
+
+async function queryYearCompareSide(
+  ceYear: number,
+  throughMonth: number,
+  lastVisibleMonth: number | null,
+  filters?: YearCompareFilters | null
+): Promise<{
+  ytd: YearCompareTotals;
+  monthly: YearCompareMonth[];
+  monthsWithData: number[];
+  lastPaidAt: string | null;
+  categories: Map<string, { ytd: YearCompareTotals; months: YearCompareMonth[] }>;
+}> {
+  const yearRange = ceYearRange(ceYear);
+  const ytd = ytdRange(ceYear, throughMonth);
+  const extraYear = yearCompareFilterSql(3, filters);
+  const extraYtd = yearCompareFilterSql(3, filters);
+  const yearParams: unknown[] = [yearRange.from, yearRange.to, ...extraYear.params];
+  const ytdParams: unknown[] = [ytd.from, ytd.to, ...extraYtd.params];
+  const dateWhere = `t.is_deleted = FALSE AND t.status = 'paid' AND t.paid_timestamp IS NOT NULL AND t.paid_timestamp >= $1 AND t.paid_timestamp < $2`;
+  const pool = getPool();
+
+  const [monthQ, ytdQ, catMonthQ, catYtdQ, lastQ] = await Promise.all([
+    pool.query<{ month: number; tickets: number; customers: number; weight_kg: number; amount: number }>(
+      `SELECT EXTRACT(MONTH FROM (t.paid_timestamp AT TIME ZONE 'Asia/Bangkok'))::int AS month,
+              COUNT(DISTINCT t.id)::int AS tickets,
+              COUNT(DISTINCT t.seller_id)::int AS customers,
+              COALESCE(SUM(${ITEM_NET_WEIGHT} * COALESCE(p.kg_conversion,1)),0)::float AS weight_kg,
+              COALESCE(SUM(${ITEM_NET_WEIGHT} * COALESCE(i.paid_price,0)),0)::float AS amount
+       FROM in_ticket_items i
+       JOIN in_tickets t ON t.id = i.ticket_id
+       LEFT JOIN products p ON p.id = i.product_id
+       WHERE ${dateWhere}${extraYear.sql}
+       GROUP BY 1`,
+      yearParams
+    ),
+    pool.query<{ tickets: number; customers: number; weight_kg: number; amount: number }>(
+      `SELECT COUNT(DISTINCT t.id)::int AS tickets,
+              COUNT(DISTINCT t.seller_id)::int AS customers,
+              COALESCE(SUM(${ITEM_NET_WEIGHT} * COALESCE(p.kg_conversion,1)),0)::float AS weight_kg,
+              COALESCE(SUM(${ITEM_NET_WEIGHT} * COALESCE(i.paid_price,0)),0)::float AS amount
+       FROM in_ticket_items i
+       JOIN in_tickets t ON t.id = i.ticket_id
+       LEFT JOIN products p ON p.id = i.product_id
+       WHERE ${dateWhere}${extraYtd.sql}`,
+      ytdParams
+    ),
+    pool.query<{ month: number; item_group: string | null; tickets: number; customers: number; weight_kg: number; amount: number }>(
+      `SELECT EXTRACT(MONTH FROM (t.paid_timestamp AT TIME ZONE 'Asia/Bangkok'))::int AS month,
+              i.item_group,
+              COUNT(DISTINCT t.id)::int AS tickets,
+              COUNT(DISTINCT t.seller_id)::int AS customers,
+              COALESCE(SUM(${ITEM_NET_WEIGHT} * COALESCE(p.kg_conversion,1)),0)::float AS weight_kg,
+              COALESCE(SUM(${ITEM_NET_WEIGHT} * COALESCE(i.paid_price,0)),0)::float AS amount
+       FROM in_ticket_items i
+       JOIN in_tickets t ON t.id = i.ticket_id
+       LEFT JOIN products p ON p.id = i.product_id
+       WHERE ${dateWhere}${extraYear.sql}
+       GROUP BY 1, i.item_group`,
+      yearParams
+    ),
+    pool.query<{ item_group: string | null; tickets: number; customers: number; weight_kg: number; amount: number }>(
+      `SELECT i.item_group,
+              COUNT(DISTINCT t.id)::int AS tickets,
+              COUNT(DISTINCT t.seller_id)::int AS customers,
+              COALESCE(SUM(${ITEM_NET_WEIGHT} * COALESCE(p.kg_conversion,1)),0)::float AS weight_kg,
+              COALESCE(SUM(${ITEM_NET_WEIGHT} * COALESCE(i.paid_price,0)),0)::float AS amount
+       FROM in_ticket_items i
+       JOIN in_tickets t ON t.id = i.ticket_id
+       LEFT JOIN products p ON p.id = i.product_id
+       WHERE ${dateWhere}${extraYtd.sql}
+       GROUP BY i.item_group`,
+      ytdParams
+    ),
+    pool.query<{ last_paid: Date | null }>(
+      `SELECT MAX(t.paid_timestamp) AS last_paid
+       FROM in_ticket_items i
+       JOIN in_tickets t ON t.id = i.ticket_id
+       WHERE ${dateWhere}${extraYear.sql}`,
+      yearParams
+    ),
+  ]);
+
+  const monthlyMap = new Map<number, Omit<YearCompareMonth, "month">>();
+  for (const row of monthQ.rows) {
+    monthlyMap.set(num(row.month), {
+      tickets: num(row.tickets),
+      customers: num(row.customers),
+      weightKg: num(row.weight_kg),
+      amount: num(row.amount),
+    });
+  }
+  const monthsWithData = [...monthlyMap.keys()].filter((m) => (monthlyMap.get(m)?.tickets ?? 0) > 0).sort((a, b) => a - b);
+  const visible = lastVisibleMonth == null && monthsWithData.length === 0 ? 0 : lastVisibleMonth;
+  const monthly = monthSeries(monthlyMap, visible === 0 ? 0 : visible);
+
+  const catMonths = new Map<string, Map<number, Omit<YearCompareMonth, "month">>>();
+  for (const row of catMonthQ.rows) {
+    const key = row.item_group ?? "";
+    let map = catMonths.get(key);
+    if (!map) {
+      map = new Map();
+      catMonths.set(key, map);
+    }
+    map.set(num(row.month), {
+      tickets: num(row.tickets),
+      customers: num(row.customers),
+      weightKg: num(row.weight_kg),
+      amount: num(row.amount),
+    });
+  }
+
+  const categories = new Map<string, { ytd: YearCompareTotals; months: YearCompareMonth[] }>();
+  const keys = new Set([...catYtdQ.rows.map((r) => r.item_group ?? ""), ...catMonths.keys()]);
+  for (const key of keys) {
+    const ytdRow = catYtdQ.rows.find((r) => (r.item_group ?? "") === key);
+    categories.set(key, {
+      ytd: totalsFromRow(ytdRow),
+      months: monthSeries(catMonths.get(key) ?? new Map(), visible === 0 ? 0 : visible),
+    });
+  }
+
+  return {
+    ytd: totalsFromRow(ytdQ.rows[0]),
+    monthly,
+    monthsWithData,
+    lastPaidAt: lastQ.rows[0]?.last_paid ? new Date(lastQ.rows[0].last_paid).toISOString() : null,
+    categories,
+  };
+}
+
+export async function getYearCompare(opts: {
+  ceYear: number;
+  compareCeYear?: number | null;
+  throughMonth?: number | null;
+  includeCurrentMonth?: boolean;
+  filters?: YearCompareFilters | null;
+}): Promise<YearCompareResult> {
+  const ceYear = opts.ceYear;
+  const compareCeYear = opts.compareCeYear && opts.compareCeYear !== ceYear ? opts.compareCeYear : ceYear - 1;
+  const includeCurrentMonth = opts.includeCurrentMonth === true;
+  const throughMonth = Math.min(
+    12,
+    Math.max(1, opts.throughMonth && opts.throughMonth >= 1 && opts.throughMonth <= 12
+      ? opts.throughMonth
+      : defaultYtdThroughMonth(ceYear, includeCurrentMonth))
+  );
+  const filters = opts.filters ?? {};
+  const currentVisible = ceYear > currentCeYear() ? 0 : ceYear < currentCeYear() ? 12 : throughMonth;
+  const previousVisible = compareCeYear > currentCeYear() ? 0 : 12;
+
+  const branchOnly = yearCompareFilterSql(5, { branch: filters.branch ?? null });
+  const currentRange = ceYearRange(ceYear);
+  const compareRange = ceYearRange(compareCeYear);
+  const groupParams: unknown[] = [currentRange.from, currentRange.to, compareRange.from, compareRange.to, ...branchOnly.params];
+
+  const [current, previous, availableBeYears, branchQ, groupQ, conversionNote] = await Promise.all([
+    queryYearCompareSide(ceYear, throughMonth, currentVisible, filters),
+    queryYearCompareSide(compareCeYear, throughMonth, previousVisible, filters),
+    getAvailableBeYears(),
+    getPool().query<{ branch_code: string }>(
+      `SELECT DISTINCT i.branch_code
+       FROM in_ticket_items i
+       JOIN in_tickets t ON t.id = i.ticket_id
+       WHERE t.is_deleted = FALSE AND t.status = 'paid' AND t.paid_timestamp IS NOT NULL
+         AND i.branch_code IS NOT NULL
+       ORDER BY 1`
+    ),
+    getPool().query<{ item_group: string | null }>(
+      `SELECT DISTINCT i.item_group
+       FROM in_ticket_items i
+       JOIN in_tickets t ON t.id = i.ticket_id
+       WHERE t.is_deleted = FALSE AND t.status = 'paid' AND t.paid_timestamp IS NOT NULL
+         AND (
+           (t.paid_timestamp >= $1 AND t.paid_timestamp < $2)
+           OR (t.paid_timestamp >= $3 AND t.paid_timestamp < $4)
+         )${branchOnly.sql}`,
+      groupParams
+    ),
+    getTradeConversionNote("in", ytdRange(ceYear, throughMonth)),
+  ]);
+
+  const fromYears = groupQ.rows.map((row) => row.item_group ?? "");
+  const allow = filters.itemGroups?.length ? new Set(filters.itemGroups) : null;
+  const catKeys = [...new Set(allow ? [...allow] : fromYears)].sort((a, b) =>
+    (a || "\uFFFF").localeCompare(b || "\uFFFF", "th", { numeric: true })
+  );
+  const categories: YearCompareCategory[] = catKeys.map((key) => {
+    const cur = current.categories.get(key);
+    const prev = previous.categories.get(key);
+    const currentYtd = cur?.ytd ?? withTicketsPerCustomer({ tickets: 0, customers: 0, weightKg: 0, amount: 0 });
+    const previousYtd = prev?.ytd ?? withTicketsPerCustomer({ tickets: 0, customers: 0, weightKg: 0, amount: 0 });
+    return {
+      itemGroup: key || null,
+      nameTh: itemGroupName(key || null),
+      current: currentYtd,
+      previous: previousYtd,
+      changePct: changeOf(currentYtd, previousYtd),
+      currentMonths: cur?.months ?? monthSeries(new Map(), currentVisible === 0 ? 0 : currentVisible),
+      previousMonths: prev?.months ?? monthSeries(new Map(), previousVisible === 0 ? 0 : previousVisible),
+    };
+  });
+
+  const previousMissing = previous.monthsWithData.length === 0;
+
+  return {
+    side: "in",
+    note: `ตั๋วอาจมีหลายรหัสสาขา — ตัวเลขนับจากรายการ ไม่ใช่เจ้าของตั๋ว · ลูกค้า = คนไม่ซ้ำในช่วง YTD ไม่ใช่ผลบวกรายเดือน · ${conversionNote}`,
+    ceYear,
+    beYear: toBuddhistYear(ceYear),
+    compareCeYear,
+    compareBeYear: toBuddhistYear(compareCeYear),
+    throughMonth,
+    includeCurrentMonth,
+    branch: filters.branch ?? null,
+    itemGroupsFilter: filters.itemGroups ?? [],
+    lastPaidAt: current.lastPaidAt,
+    previousMissing,
+    completeness: {
+      currentMonths: current.monthsWithData,
+      previousMonths: previous.monthsWithData,
+      currentLabel: completenessLabel(toBuddhistYear(ceYear), current.monthsWithData),
+      previousLabel: completenessLabel(toBuddhistYear(compareCeYear), previous.monthsWithData),
+    },
+    kpis: {
+      current: current.ytd,
+      previous: previous.ytd,
+      changePct: changeOf(current.ytd, previous.ytd),
+    },
+    monthly: {
+      current: current.monthly,
+      previous: previous.monthly,
+    },
+    categories,
+    availableBeYears: availableBeYears.length ? availableBeYears : [toBuddhistYear(ceYear)],
+    branches: branchQ.rows.map((row) => row.branch_code).sort((a, b) => a.localeCompare(b, "th", { numeric: true })),
+    itemGroups: [...new Set(groupQ.rows.map((row) => row.item_group).filter((v): v is string => Boolean(v)))].sort((a, b) =>
+      a.localeCompare(b, "th", { numeric: true })
+    ),
   };
 }

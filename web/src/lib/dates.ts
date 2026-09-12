@@ -139,3 +139,13 @@ export function ceYearRange(ceYear: number): DateRange {
 export function ceMonthRange(ceYear: number, month: number): DateRange {
   return { from: bangkokDayStart(ceYear, month, 1), to: bangkokDayStart(ceYear, month + 1, 1) };
 }
+
+/** Last month included in YTD compare. Incomplete current month is excluded unless includeCurrent. */
+export function defaultYtdThroughMonth(ceYear: number, includeCurrent = false): number {
+  const nowY = currentCeYear();
+  const nowM = currentCeMonth();
+  if (ceYear < nowY) return 12;
+  if (ceYear > nowY) return 1;
+  if (includeCurrent) return nowM;
+  return nowM <= 1 ? 1 : nowM - 1;
+}
