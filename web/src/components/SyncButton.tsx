@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatWhen } from "@/lib/format";
 import type { SyncStatus } from "@/lib/sync-types";
 
 async function readJson<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; status: number; data: T & { error?: string } }> {
@@ -105,13 +104,9 @@ export function SyncButton({ onSynced }: { onSynced?: () => void }) {
 
   return (
     <div className="sync-box">
-      <div className="hint">
-        {busy
-          ? "อาจเปิด Chrome สั้นๆ เหมือน sync-auto แล้วค่อยดึงข้อมูล — รอจนจบแล้วจะรีโหลดหน้านี้"
-          : status?.finishedAt
-            ? `ล่าสุด ${formatWhen(status.finishedAt)}${status.mode ? ` (${status.mode})` : ""}`
-            : "ยังไม่มีรอบ sync"}
-      </div>
+      {busy ? (
+        <div className="hint">อาจเปิด Chrome สั้นๆ เหมือน sync-auto แล้วค่อยดึงข้อมูล — รอจนจบแล้วจะรีโหลดหน้านี้</div>
+      ) : null}
       {error ? <div className="error">{error}</div> : null}
       {hint ? <div className="hint">{hint}</div> : null}
       <button className="pill" type="button" disabled={busy} onClick={() => void start()}>

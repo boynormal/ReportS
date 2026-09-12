@@ -1,0 +1,15 @@
+@echo off
+setlocal
+set "TASK=ScrapeeSyncAuto"
+for %%I in ("%~dp0..\sync-auto.cmd") do set "SYNC=%%~fI"
+if not exist "%SYNC%" (
+  echo ไม่พบ %SYNC%
+  pause
+  exit /b 1
+)
+echo ลงทะเบียนงาน %TASK%
+echo รัน: %SYNC%
+echo ทุกวัน 06:00-18:00 ทุก 1 ชม. ต้องล็อกอินอยู่ ^(Chrome^)
+schtasks /Create /F /TN "%TASK%" /TR "cmd /c set SCRAPEE_SYNC_NOPAUSE=1&& %SYNC%" /SC DAILY /ST 06:00 /RI 60 /DU 0012:00 /IT
+echo.
+pause

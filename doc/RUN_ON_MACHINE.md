@@ -22,20 +22,14 @@
 
 [`scripts/sync-auto.cmd`](../scripts/sync-auto.cmd) = `npm run sync:auto` (เปิด Chrome จับ token แล้ว incremental sync)
 
-ตั้ง Task Scheduler เองครั้งเดียว — สคริปต์นี้ไม่ลงทะเบียนให้:
+ลงทะเบียน Task Scheduler จากโฟลเดอร์ [`scripts/scheduler/`](../scripts/scheduler/) ครั้งเดียว (หา path เครื่องนี้เอง ไม่ต้องพิมพ์ `schtasks`):
 
-1. Create Task → **Run only when user is logged on** (ต้องมีจอให้ Chrome)
-2. Trigger: ทุก 45 นาที ตอนเปิดร้าน
-3. Action: Start a program = `scripts\sync-auto.cmd` (path เต็ม)
-4. Start in = โฟลเดอร์รากโปรเจกต์ เช่น `D:\project\Scrapee`
+1. ดับเบิลคลิก [`scripts/scheduler/install.cmd`](../scripts/scheduler/install.cmd) — งาน `ScrapeeSyncAuto` ทุกวัน 06:00–18:00 ทุก 1 ชม. รันเมื่อล็อกอินอยู่
+2. [`status.cmd`](../scripts/scheduler/status.cmd) — ดูรอบถัดไปและผลรันล่าสุด (`Last Result` เป็น 0 = สำเร็จ)
+3. [`run-now.cmd`](../scripts/scheduler/run-now.cmd) — ทดสอบทันที
+4. [`uninstall.cmd`](../scripts/scheduler/uninstall.cmd) — ลบงาน
 
-ตัวอย่าง (แก้ path ให้ตรงเครื่อง; `SCRAPEE_SYNC_NOPAUSE=1` กันไม่ให้ค้างรอ Enter):
-
-```bat
-schtasks /Create /TN "ScrapeeSyncAuto" /TR "cmd /c set SCRAPEE_SYNC_NOPAUSE=1&& D:\project\Scrapee\scripts\sync-auto.cmd" /SC MINUTE /MO 45 /IT
-```
-
-`/IT` = รันในเซสชันที่ล็อกอินอยู่
+`install.cmd` ใช้ `/F` ทับงานชื่อเดียวกันได้ ถ้าเคยสร้างมือไว้แล้ว
 
 ตั้งเครื่องไม่ sleep ตอนเปิดร้าน Session Chrome ถูกเก็บใน `.auth/scrapee.json` ตั้ง `AUTH_KEEP_SESSION=0` ใน `.env` ถ้าต้องการ login ใหม่ทุกครั้ง
 

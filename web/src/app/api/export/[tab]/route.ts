@@ -150,7 +150,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ tab: string
         await getStock({
           branch: branch && branch.length > 0 ? branch : null,
           itemGroup: itemGroup && itemGroup.length > 0 ? itemGroup : null,
-          range: rangeFromPreset("custom", fromParam || `${currentCeYear()}-01-01`, toParam || sqlDay(new Date())),
+          range: rangeFromPreset("custom", fromParam || sqlDay(new Date()), toParam || sqlDay(new Date())),
         })
       );
     }

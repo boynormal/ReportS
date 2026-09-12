@@ -344,7 +344,7 @@ export function TradeSummaryApp() {
       : defaultFocusMonth(fromBuddhistYear(beYear));
   const openSideRaw = search.get("open_side");
   const openSide: OpenSide = openSideRaw === "in" || openSideRaw === "out" ? openSideRaw : "all";
-  const stockFrom = search.get("from") || `${currentCeYear()}-01-01`;
+  const stockFrom = search.get("from") || sqlDay(new Date());
   const stockTo = search.get("to") || sqlDay(new Date());
   const capRaw = Number(search.get("cap"));
   const smallInCap: SmallInCap = (SMALL_IN_CAPS as readonly number[]).includes(capRaw)
@@ -2356,7 +2356,7 @@ function formatUnit(unit: string | null): string {
 }
 
 function formatAvgPaid(amount: number, weight: number): string {
-  return weight > 0 ? formatMoney(amount / weight) : "—";
+  return weight > 0 ? formatDecimal(amount / weight, 2) : "—";
 }
 
 function groupStockRows(rows: StockProduct[]) {
@@ -2448,11 +2448,7 @@ function StockPanel({
           <div className="value">{formatNumber(data.productCount)}</div>
         </div>
         <div className="card">
-          <div className="label">ปริมาณคลัง</div>
-          <div className="value">{formatDecimal(data.stockQty, 2)}</div>
-        </div>
-        <div className="card">
-          <div className="label">น้ำหนัก (กก.)</div>
+          <div className="label">คงเหลือ (กก.)</div>
           <div className="value">{formatDecimal(data.weightKg, 2)}</div>
           <div className="hint">คงเหลือ × kg_conversion</div>
         </div>
@@ -2477,8 +2473,7 @@ function StockPanel({
                   <th>หมวด</th>
                   <th>รหัส</th>
                   <th>สินค้า</th>
-                  <th className="right">คงเหลือ</th>
-                  <th className="right">กก.</th>
+                  <th className="right">คงเหลือ (กก.)</th>
                   <th>หน่วย</th>
                   <th className="right">ราคาตั้งต้น</th>
                   <th className="right">ราคาถัวเฉลี่ย</th>
@@ -2500,7 +2495,6 @@ function StockPanel({
                         <td></td>
                         <td></td>
                         <td></td>
-                        <td className="right">{formatDecimal(group.stockQty, 2)}</td>
                         <td className="right">{formatDecimal(group.weightKg, 2)}</td>
                         <td></td>
                         <td></td>
@@ -2522,7 +2516,6 @@ function StockPanel({
                                   </td>
                                   <td></td>
                                   <td></td>
-                                  <td className="right">{formatDecimal(item.stockQty, 2)}</td>
                                   <td className="right">{formatDecimal(item.weightKg, 2)}</td>
                                   <td></td>
                                   <td></td>
@@ -2536,7 +2529,6 @@ function StockPanel({
                                         <td></td>
                                         <td>{row.code ?? "—"}</td>
                                         <td>{row.name ?? "—"}</td>
-                                        <td className="right">{formatDecimal(row.stockQty, 2)}</td>
                                         <td className="right">{formatDecimal(row.weightKg, 2)}</td>
                                         <td>{formatUnit(row.unit)}</td>
                                         <td className="right">{formatDecimal(row.basePrice, 2)}</td>
@@ -2554,7 +2546,6 @@ function StockPanel({
                 })}
                 <tr className="pivot-total">
                   <td colSpan={4}>Grand total</td>
-                  <td className="right">{formatDecimal(data.stockQty, 2)}</td>
                   <td className="right">{formatDecimal(data.weightKg, 2)}</td>
                   <td></td>
                   <td></td>

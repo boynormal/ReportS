@@ -1,5 +1,5 @@
 import { errorJson, json } from "@/lib/api";
-import { currentCeYear, rangeFromPreset, sqlDay } from "@/lib/dates";
+import { rangeFromPreset, sqlDay } from "@/lib/dates";
 import { getStock } from "@/lib/queries";
 
 export async function GET(request: Request) {
@@ -9,10 +9,11 @@ export async function GET(request: Request) {
     const itemGroup = url.searchParams.get("item_group");
     const fromParam = url.searchParams.get("from");
     const toParam = url.searchParams.get("to");
+    const today = sqlDay(new Date());
     const range = rangeFromPreset(
       "custom",
-      fromParam || `${currentCeYear()}-01-01`,
-      toParam || sqlDay(new Date())
+      fromParam || today,
+      toParam || today
     );
     return json(
       await getStock({

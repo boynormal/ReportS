@@ -85,6 +85,41 @@ button, select, input { font: inherit; }
   flex-wrap: nowrap;
   gap: 12px;
 }
+.last-sync-stamp {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  flex-shrink: 0;
+  min-width: 0;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: #0b1b3a;
+  color: #fff;
+  line-height: 1.2;
+  box-shadow: 0 2px 8px rgba(11, 27, 58, 0.28);
+}
+.last-sync-stamp-label {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: #d4deee;
+}
+.last-sync-stamp-time {
+  font-size: 15px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.last-sync-stamp-running {
+  background: #c5a028;
+  box-shadow: 0 2px 8px rgba(197, 160, 40, 0.35);
+}
+.last-sync-stamp-running .last-sync-stamp-label {
+  color: #3d2f08;
+}
+.last-sync-stamp-running .last-sync-stamp-time {
+  color: #1c1914;
+}
 .trade-navbar .sync-box {
   flex-direction: row;
   align-items: center;
@@ -871,11 +906,19 @@ a.pivot-num:hover { color: var(--accent); }
   .trade-navbar .header-actions {
     width: 100%;
     justify-content: space-between;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .trade-navbar .sync-box { flex-wrap: wrap; min-width: 0; }
   .trade-navbar .sync-box .hint { min-width: 0; }
   .trade-navbar .sync-box .hint { white-space: normal; }
+  .last-sync-stamp {
+    flex: 1 1 auto;
+    min-width: 0;
+    order: -1;
+    width: 100%;
+  }
+  .last-sync-stamp-time { white-space: normal; }
   .trade-sidebar {
     position: fixed;
     top: 0;

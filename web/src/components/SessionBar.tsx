@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { DashboardRole, SessionUser } from "@/lib/auth-types";
 import { canSync, isAdmin } from "@/lib/auth-types";
+import { LastSyncStamp } from "./LastSyncStamp";
 import { SyncButton } from "./SyncButton";
 
 const ROLE_LABEL: Record<DashboardRole, string> = {
@@ -69,6 +70,7 @@ export function SessionBar({ onSynced }: { onSynced?: () => void }) {
 
   return (
     <div className="header-actions session-bar">
+      <LastSyncStamp />
       {canSync(me?.role) ? <SyncButton onSynced={onSynced} /> : null}
       <div className="account-menu" ref={boxRef}>
         <button

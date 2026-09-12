@@ -243,8 +243,7 @@ export async function exportStock(data: StockResult) {
   const wb = createWorkbook();
   addSheet(wb, "สรุป", ["รายการ", "ค่า"], [
     ["รายการที่มีสต็อก", data.productCount],
-    ["ปริมาณคลัง", data.stockQty],
-    ["น้ำหนักกก.", data.weightKg],
+    ["คงเหลือ (กก.)", data.weightKg],
     ["มูลค่าประมาณ", data.estimatedValue],
     ["จาก", data.from],
     ["ถึง", data.to],
@@ -252,13 +251,12 @@ export async function exportStock(data: StockResult) {
   addSheet(
     wb,
     "รายสินค้า",
-    ["สาขา", "หมวด", "รหัส", "สินค้า", "คงเหลือ", "กก.", "หน่วย", "ราคาตั้งต้น", "ราคาถัวเฉลี่ย", "มูลค่าประมาณ"],
+    ["สาขา", "หมวด", "รหัส", "สินค้า", "คงเหลือ (กก.)", "หน่วย", "ราคาตั้งต้น", "ราคาถัวเฉลี่ย", "มูลค่าประมาณ"],
     data.rows.map((row) => [
       row.branchCode ?? "ไม่ระบุ",
       row.itemGroup ?? "ไม่ระบุ",
       row.code,
       row.name,
-      row.stockQty,
       row.weightKg,
       formatUnit(row.unit),
       row.basePrice,

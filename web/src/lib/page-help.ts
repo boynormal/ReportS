@@ -288,13 +288,8 @@ export const PAGE_HELP: Record<PageHelpTab, PageHelp> = {
         useFor: "ดูความหลากหลายในคลัง",
       },
       {
-        name: "ปริมาณคลัง",
-        formula: "หน่วยตามสินค้า ยังไม่แปลงเป็นกก.",
-        useFor: "ดูชิ้นหรือหน่วยที่ยังคงเหลือ",
-      },
-      {
-        name: "น้ำหนัก (กก.)",
-        formula: "คงเหลือ × อัตราแปลงกก.",
+        name: "คงเหลือ (กก.)",
+        formula: "คงเหลือ × COALESCE(kg_conversion, 1)",
         useFor: "เทียบกับซื้อ ขาย แปรสภาพเป็นกก. เดียวกัน",
       },
       {

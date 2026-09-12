@@ -3,7 +3,6 @@ import {
   bangkokDayStart,
   ceMonthRange,
   ceYearRange,
-  currentCeYear,
   rangeFromPreset,
   sqlDay,
   toBuddhistYear,
@@ -106,7 +105,7 @@ export async function getStock(
 ): Promise<StockResult> {
   const pool = getPool();
   const range =
-    filters?.range ?? rangeFromPreset("custom", `${currentCeYear()}-01-01`, sqlDay(new Date()));
+    filters?.range ?? rangeFromPreset("custom", sqlDay(new Date()), sqlDay(new Date()));
   const from = range.from;
   const to = range.from >= range.to ? new Date(range.from.getTime() + 24 * 60 * 60 * 1000) : range.to;
   const params: unknown[] = [from, to];
@@ -212,7 +211,7 @@ export async function getStock(
   );
 
   return {
-    note: "สต็อกเป็น snapshot ตอน sync · มูลค่า = คงเหลือ × ราคาตั้งต้น · ราคาถัวเฉลี่ยจากตั๋วซื้อจ่ายแล้วในช่วงวันที่ ไม่ใช่ต้นทุนของของคงเหลือ และไม่ใช่กำไรสุทธิ",
+    note: "สต็อกเป็น snapshot ตอน sync · คงเหลือ (กก.) = คงเหลือ × COALESCE(kg_conversion, 1) · มูลค่า = คงเหลือ × ราคาตั้งต้น · ราคาถัวเฉลี่ยจากตั๋วซื้อจ่ายแล้วในช่วงวันที่ ไม่ใช่ต้นทุนของของคงเหลือ และไม่ใช่กำไรสุทธิ",
     from: sqlDay(from),
     to: sqlDay(new Date(to.getTime() - 1)),
     productCount: num(kpiQ.rows[0]?.products),
