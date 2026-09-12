@@ -24,7 +24,7 @@
 
 ลงทะเบียน Task Scheduler จากโฟลเดอร์ [`scripts/scheduler/`](../scripts/scheduler/) ครั้งเดียว (หา path เครื่องนี้เอง ไม่ต้องพิมพ์ `schtasks`):
 
-1. ดับเบิลคลิก [`scripts/scheduler/install.cmd`](../scripts/scheduler/install.cmd) — งาน `ScrapeeSyncAuto` ทุกวัน 06:00–18:00 ทุก 1 ชม. รันเมื่อล็อกอินอยู่
+1. ดับเบิลคลิก [`scripts/scheduler/install.cmd`](../scripts/scheduler/install.cmd) — งาน `ScrapeeSyncAuto` จันทร์–เสาร์ 06:00–18:00 ทุก 1 ชม. ยกเว้นวันอาทิตย์ รันเมื่อล็อกอินอยู่
 2. [`status.cmd`](../scripts/scheduler/status.cmd) — ดูรอบถัดไปและผลรันล่าสุด (`Last Result` เป็น 0 = สำเร็จ)
 3. [`run-now.cmd`](../scripts/scheduler/run-now.cmd) — ทดสอบทันที
 4. [`uninstall.cmd`](../scripts/scheduler/uninstall.cmd) — ลบงาน

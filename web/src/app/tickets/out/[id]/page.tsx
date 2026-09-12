@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getOutTicket, netWarehouseWeight, wasteWeight } from "@/lib/queries";
-import { formatMoney, formatNumber, formatWhen } from "@/lib/format";
+import { formatDecimal, formatMoney, formatNumber, formatWhen } from "@/lib/format";
 
 export default async function OutTicketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -67,7 +67,7 @@ export default async function OutTicketPage({ params }: { params: Promise<{ id: 
                 <td className="right">{formatNumber(Number(row.deduct ?? 0))}</td>
                 <td className="right">{formatNumber(wasteWeight(row.wastes))}</td>
                 <td className="right">{formatNumber(netWarehouseWeight(row.weight, row.deduct, row.wastes))}</td>
-                <td className="right">{formatMoney(Number(row.paid_price ?? 0))}</td>
+                <td className="right">{formatDecimal(Number(row.paid_price ?? 0), 2)}</td>
               </tr>
             );
           })}
