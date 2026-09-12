@@ -1294,6 +1294,7 @@ export function TradeSummaryApp() {
               return next;
             });
           }}
+          onUpdateCollapsed={(updater) => setCollapsed(updater)}
         />
       ) : null}
 
@@ -1357,6 +1358,7 @@ export function TradeSummaryApp() {
               return next;
             });
           }}
+          onUpdateCollapsed={(updater) => setCollapsed(updater)}
           onSelectMonth={(month) => setParams({ month: String(month), page: null })}
         />
       ) : null}
@@ -2075,11 +2077,13 @@ function TransformPanel({
   data,
   collapsed,
   onToggle,
+  onUpdateCollapsed,
   onSelectMonth,
 }: {
   data: StockTransformsResult;
   collapsed: Set<string>;
   onToggle: (key: string) => void;
+  onUpdateCollapsed: (updater: (prev: Set<string>) => Set<string>) => void;
   onSelectMonth: (month: number) => void;
 }) {
   const monthly = data.monthly.map((row) => ({
@@ -2089,6 +2093,23 @@ function TransformPanel({
     outputKg: row.outputKg,
   }));
   const monthLabel = `${THAI_MONTHS_SHORT[data.month - 1]} ${data.beYear}`;
+  const rowIds = data.rows.map((row) => row.id);
+  const allRowsCollapsed = rowIds.length > 0 && rowIds.every((id) => collapsed.has(id));
+  const allRowsExpanded = rowIds.length > 0 && rowIds.every((id) => !collapsed.has(id));
+  const collapseAllRows = () => {
+    onUpdateCollapsed((prev) => {
+      const next = new Set(prev);
+      for (const id of rowIds) next.add(id);
+      return next;
+    });
+  };
+  const expandAllRows = () => {
+    onUpdateCollapsed((prev) => {
+      const next = new Set(prev);
+      for (const id of rowIds) next.delete(id);
+      return next;
+    });
+  };
 
   return (
     <div>
@@ -2154,9 +2175,33 @@ function TransformPanel({
         </ResponsiveContainer>
       </div>
       <div className="panel">
-        <h2>
-          รายการแปรสภาพ · {monthLabel} · {formatNumber(data.total, 0)} ครั้ง
-        </h2>
+        <div className="panel-toolbar">
+          <h2>
+            รายการแปรสภาพ · {monthLabel} · {formatNumber(data.total, 0)} ครั้ง
+          </h2>
+          {data.rows.length > 0 ? (
+            <div className="fold-tabs" role="tablist" aria-label="หุบหรือขยายรายการ">
+              <button
+                type="button"
+                role="tab"
+                className={allRowsCollapsed ? "active" : ""}
+                aria-selected={allRowsCollapsed}
+                onClick={collapseAllRows}
+              >
+                − หุบทุกรายการ
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className={allRowsExpanded ? "active" : ""}
+                aria-selected={allRowsExpanded}
+                onClick={expandAllRows}
+              >
+                + ขยายทุกรายการ
+              </button>
+            </div>
+          ) : null}
+        </div>
         {data.rows.length === 0 ? (
           <p className="muted">ไม่มีแปรสภาพในเดือนนี้</p>
         ) : (
@@ -2437,14 +2482,40 @@ function StockPanel({
   data,
   collapsed,
   onToggle,
+  onUpdateCollapsed,
 }: {
   data: StockResult;
   collapsed: Set<string>;
   onToggle: (key: string) => void;
+  onUpdateCollapsed: (updater: (prev: Set<string>) => Set<string>) => void;
 }) {
   const groups = useMemo(() => groupStockRows(data.rows), [data.rows]);
   const totalBuyAmount = data.rows.reduce((sum, row) => sum + row.buyAmount, 0);
   const totalBuyWeight = data.rows.reduce((sum, row) => sum + row.buyWeight, 0);
+  const allCategoriesCollapsed =
+    groups.length > 0 && groups.every((group) => group.items.every((item) => collapsed.has(item.key)));
+  const allCategoriesExpanded =
+    groups.length > 0 &&
+    groups.every((group) => !collapsed.has(group.key) && group.items.every((item) => !collapsed.has(item.key)));
+  const collapseAllCategories = () => {
+    onUpdateCollapsed((prev) => {
+      const next = new Set(prev);
+      for (const group of groups) {
+        for (const item of group.items) next.add(item.key);
+      }
+      return next;
+    });
+  };
+  const expandAllCategories = () => {
+    onUpdateCollapsed((prev) => {
+      const next = new Set(prev);
+      for (const group of groups) {
+        next.delete(group.key);
+        for (const item of group.items) next.delete(item.key);
+      }
+      return next;
+    });
+  };
   return (
     <div>
       <div className="grid grid-4">
@@ -2464,9 +2535,33 @@ function StockPanel({
         </div>
       </div>
       <div className="panel">
-        <h2>
-          สต็อกตามสาขาและหมวด · ราคาถัวเฉลี่ย {data.from} – {data.to}
-        </h2>
+        <div className="panel-toolbar">
+          <h2>
+            สต็อกตามสาขาและหมวด · ราคาถัวเฉลี่ย {data.from} – {data.to}
+          </h2>
+          {data.rows.length > 0 ? (
+            <div className="fold-tabs" role="tablist" aria-label="หุบหรือขยายหมวด">
+              <button
+                type="button"
+                role="tab"
+                className={allCategoriesCollapsed ? "active" : ""}
+                aria-selected={allCategoriesCollapsed}
+                onClick={collapseAllCategories}
+              >
+                − หุบทุกหมวด
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className={allCategoriesExpanded ? "active" : ""}
+                aria-selected={allCategoriesExpanded}
+                onClick={expandAllCategories}
+              >
+                + ขยายทุกหมวด
+              </button>
+            </div>
+          ) : null}
+        </div>
         {data.rows.length === 0 ? (
           <p className="muted">ไม่มีสินค้าที่มียอดคงเหลือในช่วงตัวกรองนี้</p>
         ) : (
