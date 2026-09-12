@@ -1,0 +1,11 @@
+node_modules/
+web/.next/
+dist/
+.env
+.auth/
+*.log
+inTickets-full.json
+inTickets-summary.csv
+web/tsconfig.tsbuildinfo
+dbbackup/*.sql
+New Text Document.txt

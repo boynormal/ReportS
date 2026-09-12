@@ -1,0 +1,28 @@
+{
+  "name": "scrapee-export",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sync Scrapee buy-tickets from Firestore to PostgreSQL",
+  "main": "src/sync-to-postgres.ts",
+  "scripts": {
+    "auth": "tsx src/refresh-tokens.ts",
+    "sync": "tsx src/sync-to-postgres.ts",
+    "sync:auto": "tsx src/sync-with-auth.ts",
+    "compare": "tsx src/compare-month-counts.ts",
+    "typecheck": "tsc --noEmit",
+    "dev:web": "npm run dev --prefix web",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "firebase": "^10.12.0",
+    "pg": "^8.13.0",
+    "playwright": "^1.62.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
